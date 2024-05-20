@@ -1,0 +1,9 @@
+name = "RNNFromScratch"
+uuid = "319fd230-337f-4f99-921f-106c51a70583"
+authors = ["AleksyBalazinski <aleksy.j.balazinski@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+MLDatasets = "eb30cadb-4394-5ae3-aed4-317e484a6458"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
