@@ -1,7 +1,7 @@
 import Base: ^
-^(x::GraphNode, n::GraphNode) = ScalarOperator(^, x, n)
+^(x::GraphNode, n::Constant) = ScalarOperator(^, x, n)
 forward(::ScalarOperator{typeof(^)}, x, n) = return x^n
-backward(::ScalarOperator{typeof(^)}, x, n, g) = tuple(g * n * x^(n - 1), g * log(abs(x)) * x^n)
+backward(::ScalarOperator{typeof(^)}, x, n, g) = tuple(g * n * x^(n - 1), 0)
 
 import Base: sin
 sin(x::GraphNode) = ScalarOperator(sin, x)
@@ -63,3 +63,21 @@ backward(::BroadcastedOperator{typeof(max)}, x, y, g) =
         Jy = diagm(isless.(x, y))
         tuple(Jx' * g, Jy' * g)
     end
+
+σ(x) = 1 / (1 + exp(-x))
+Base.Broadcast.broadcasted(σ, x::GraphNode) = BroadcastedOperator(σ, x)
+forward(::BroadcastedOperator{typeof(σ)}, x) = return σ.(x)
+function backward(op::BroadcastedOperator{typeof(σ)}, x, g)
+    y = op.output
+    res = y .* (1 .- y) .* g
+    return tuple(res)
+end
+
+Base.Broadcast.broadcasted(^, x::GraphNode, n::Constant) = BroadcastedOperator(^, x, n)
+forward(::BroadcastedOperator{typeof(^)}, x, n) = return x .^ n
+backward(::BroadcastedOperator{typeof(^)}, x, n, g) = tuple(n .* x .^ (n - 1) .* g, 0)
+
+mean_squared_loss(y, ŷ) = 0.5 .* (y .- ŷ) * (y .- ŷ)'
+mean_squared_loss(x::GraphNode, y::GraphNode) = ScalarOperator(mean_squared_loss, x, y)
+forward(::ScalarOperator{typeof(mean_squared_loss)}, x, y) = return mean_squared_loss(x, y)
+backward(::ScalarOperator{typeof(mean_squared_loss)}, x, y, g) = return tuple(y .- x, y .- x)
