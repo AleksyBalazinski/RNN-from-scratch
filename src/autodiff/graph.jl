@@ -12,6 +12,8 @@ mutable struct Variable{T} <: GraphNode
     Variable(output::T; name="?") where {T} = new{T}(output, nothing, name)
 end
 
+set_value!(variable::Variable, value) = variable.output = value
+
 mutable struct ScalarOperator{F} <: Operator
     inputs::Any
     output::Any

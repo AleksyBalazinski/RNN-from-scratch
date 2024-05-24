@@ -94,7 +94,8 @@ function cross_entropy(ŷ, y)
     _, m = size(ŷ)
     e = exp.(ŷ)
     p = e ./ sum(e, dims=1)
-    res = -1 / m * sum(y .* log.(p))
+    ϵ = eps(eltype(ŷ))
+    res = -1 / m * sum(y .* log.(p .+ ϵ))
     return res
 end
 cross_entropy(x::GraphNode, y::GraphNode) = ScalarOperator(cross_entropy, x, y)
