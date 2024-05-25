@@ -5,18 +5,11 @@ using Random
 Random.seed!(0)
 
 mutable struct ModelState
-    is_trained::Bool
-    cur_param::Int64
     params::Vector{Variable}
-end
-
-mutable struct HiddenState
     hs::Vector{GraphNode}
 end
 
-hidden_state = HiddenState([])
-
-model_state = ModelState(false, 1, [])
+model_state = ModelState([], [])
 
 function clear_params()
     model_state.is_trained = false
@@ -24,20 +17,15 @@ function clear_params()
     empty!(model_state.params)
 end
 
-function get_cur_param()
-    model_state.cur_param += 1
-    return model_state.params[cur_param-1]
-end
-
 function add_hidden(hs...)
     for h in hs
-        push!(hidden_state.hs, h)
+        push!(model_state.hs, h)
     end
 end
 
 function reset_hidden_state()
-    for h in hidden_state.hs
-        h.output = zeros(size(h.output))
+    for h in model_state.hs
+        fill!(h.output, zero(eltype(h.output)))
         h.gradient = nothing
     end
 end
@@ -48,39 +36,34 @@ end
 
 using Flux: glorot_uniform
 
-# TODO remove; this is completely useless
-function declare_or_get(size::Tuple{Int,Int}, name::String)
-    if model_state.is_trained
-        var = get_cur_param()
-    else
-        var = Variable(glorot_uniform(size...); name)
-        push!(model_state.params, var)
-    end
+function declare_var(size::Tuple{Int,Int}, name::String)
+    var = Variable(glorot_uniform(size...); name)
+    push!(model_state.params, var)
     return var
 end
 
 function dense(in_size::Int, out_size::Int, activation::Function; bias=false)
-    W = declare_or_get((out_size, in_size), "W (dense)")
+    W = declare_var((out_size, in_size), "W (dense)")
 
     if bias
-        b = declare_or_get((out_size, 1), "b (dense)")
+        b = declare_var((out_size, 1), "b (dense)")
         return x -> activation.(W * x .+ b)
     end
     return x -> activation.(W * x)
 end
 
 function dense(in_size::Int, out_size::Int; bias=false)
-    W = declare_or_get((out_size, in_size), "W (dense)")
+    W = declare_var((out_size, in_size), "W (dense)")
 
     if bias
-        b = declare_or_get((out_size, 1), "b (dense)")
+        b = declare_var((out_size, 1), "b (dense)")
         return x -> W * x .+ b
     end
     return x -> W * x
 end
 
 function create_hidden(xs::Vector, b::Variable, W::Variable, U::Variable, out_size::Int)
-    empty!(hidden_state.hs)
+    empty!(model_state.hs)
     l = out_size # default
     _, m = size(first(xs).output)
     seq_len = length(xs)
@@ -104,37 +87,13 @@ end
 
 function rnn(in_size::Int, out_size::Int)
     l = out_size # defualt
-    b = declare_or_get((l, 1), "b (rnn)")
-    W = declare_or_get((l, l), "W (rnn)")
-    U = declare_or_get((l, in_size), "U (rnn)")
-    V = declare_or_get((out_size, l), "V (rnn)")
-    c = declare_or_get((out_size, 1), "c (rnn)")
-    println("rnn params")
+    b = declare_var((l, 1), "b (rnn)")
+    W = declare_var((l, l), "W (rnn)")
+    U = declare_var((l, in_size), "U (rnn)")
+    V = declare_var((out_size, l), "V (rnn)")
+    c = declare_var((out_size, 1), "c (rnn)")
 
     return xs -> V * last(create_hidden(xs, b, W, U, out_size)) .+ c
-end
-
-function train(xs::Vector{Variable}, y::Variable, net::Function, loss::Function; epochs::Int=10, learning_rate::AbstractFloat=0.01)
-    ŷ = net(xs)
-    E = loss(ŷ, y)
-    graph = topological_sort(E)
-
-    for _ in 1:epochs
-        loss = forward!(graph)
-        backward!(graph)
-        println("loss = $loss")
-        for param in model_state.params
-            grad = param.gradient
-            if size(param.output, 2) == 1
-                grad = reshape(param.gradient[:, 1], :, 1)
-            end
-            param.output -= learning_rate * grad
-        end
-    end
-
-    model_state.is_trained = true
-
-    return graph
 end
 
 function adjust_params(learning_rate::AbstractFloat)

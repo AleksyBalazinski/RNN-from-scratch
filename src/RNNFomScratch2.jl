@@ -14,7 +14,7 @@ function loader(data::MNIST; batchsize::Int=1)
     Flux.DataLoader((x1dim, yhot); batchsize, shuffle=true)
 end
 
-using Statistics: mean  # standard library
+using Statistics: mean
 function loss_and_accuracy(model::Function, data::MNIST)
     batchsize = length(data)
     (x_test, y_test) = only(loader(data; batchsize))
@@ -75,7 +75,7 @@ end
 @show loss_and_accuracy(net, test_data)
 
 for epoch in 1:settings.epochs
-    local limit = 100 # limit the number of batches
+    local limit = 100 # ain't nobody got time for that
     local i = 1
     local loss = Inf
     @time for (x_mnist, y_mnist) in loader(train_data, batchsize=settings.batchsize)
@@ -100,9 +100,7 @@ for epoch in 1:settings.epochs
         i += 1
     end
 
-    model_state.is_trained = true
     loss, acc = loss_and_accuracy(net, train_data)
     test_loss, test_acc = loss_and_accuracy(net, test_data)
     @info epoch acc test_acc
-    model_state.is_trained = false
 end
