@@ -68,15 +68,16 @@ function dense(in_size::Int, out_size::Int, x::GraphNode)
     return W * x .+ b
 end
 
-function rnn(seq_len::Int, in_size::Int, out_size::Int, m::Int, xs::Vector{Variable{Matrix{Float64}}})
+function rnn(seq_len::Int, in_size::Int, out_size::Int, xs::Vector{Variable{Matrix{Float64}}})
     l = out_size # default
+    _, m = size(first(xs).output)
     h0 = Variable(zeros(l, m), name="h0")
     b = Variable(Flux.glorot_uniform(l, 1); name="b (rnn)")
     W = Variable(Flux.glorot_uniform(l, l); name="W (rnn)")
     U = Variable(Flux.glorot_uniform(l, in_size); name="U (rnn)")
     V = Variable(Flux.glorot_uniform(out_size, l); name="V (rnn)")
     c = Variable(Flux.glorot_uniform(out_size, 1); name="c (rnn)")
-    add_params(b, W, U, V, c, h0)
+    add_params(b, W, U, V, c)
 
     as = Vector{GraphNode}()
     hs = Vector{GraphNode}()
@@ -86,13 +87,11 @@ function rnn(seq_len::Int, in_size::Int, out_size::Int, m::Int, xs::Vector{Varia
         push!(hs, tanh.(as[t]))
     end
 
-    h0.name = "h0"
     for (i, h) in enumerate(hs)
         h.name = "h" * string(i)
     end
 
-    add_params(hs...)
-    add_hidden(h0, hs...)
+    add_hidden(h0)
     o = V * last(hs) .+ c
 
     return o
@@ -107,8 +106,8 @@ settings = (;
 rnn_in_size = 28 * 28 ÷ 4
 rnn_out_size = 64
 seq_len = 4
-xs = [Variable(rand(rnn_in_size, settings.batchsize); name="x" * string(i)) for i in 1:seq_len]
-o_rnn = rnn(seq_len, rnn_in_size, rnn_out_size, settings.batchsize, xs)
+xs = [Variable(zeros(rnn_in_size, settings.batchsize); name="x" * string(i)) for i in 1:seq_len]
+o_rnn = rnn(seq_len, rnn_in_size, rnn_out_size, xs)
 o_rnn.name = "o_rnn"
 
 dense_in_size = rnn_out_size
@@ -116,7 +115,7 @@ dense_out_size = 10
 ŷ = dense(dense_in_size, dense_out_size, o_rnn)
 ŷ.name = "ŷ"
 
-y = Variable(rand(dense_out_size, settings.batchsize), name="y")
+y = Variable(zeros(dense_out_size, settings.batchsize), name="y")
 E = cross_entropy(ŷ, y)
 E.name = "loss"
 
@@ -130,7 +129,7 @@ for (i, n) in enumerate(graph)
 end
 
 for epoch in 1:settings.epochs
-    local limit = 100 # limit the number of batches
+    local limit = 300 # limit the number of batches
     local i = 1
     local loss = Inf
     @time for (x_mnist, y_mnist) in loader(train_data, batchsize=settings.batchsize)
