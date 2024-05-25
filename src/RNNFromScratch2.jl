@@ -2,8 +2,7 @@ include("autodiff/graph.jl")
 include("autodiff/operations.jl")
 include("layers/layers.jl")
 
-using MLDatasets, Random, Flux
-Random.seed!(0)
+using MLDatasets, Flux
 
 train_data = MLDatasets.MNIST(split=:train)
 test_data = MLDatasets.MNIST(split=:test)
