@@ -18,20 +18,14 @@ using Statistics: mean
 function loss_and_accuracy(model::Function, data::MNIST)
     batchsize = length(data)
     (x_test, y_test) = only(loader(data; batchsize))
-    xs = [Variable(zeros(rnn_in_size, batchsize); name="x" * string(i)) for i in 1:seq_len]
-    y = Variable(zeros(dense_out_size, batchsize); name="y")
+    xs = [Variable(x_test[(i*196+1):((i+1)*196), :]) for i in 0:3]
+    y = Variable(y_test)
 
     ŷ = model(xs)
     E = cross_entropy(ŷ, y)
     graph = topological_sort(E)
 
     reset_hidden_state()
-    set_value!(xs[1], x_test[1:196, :])
-    set_value!(xs[2], x_test[197:392, :])
-    set_value!(xs[3], x_test[393:588, :])
-    set_value!(xs[4], x_test[589:end, :])
-    set_value!(y, y_test)
-
     loss = forward!(graph)
     acc = round(100 * mean(Flux.onecold(ŷ.output) .== Flux.onecold(y_test)); digits=2)
 
