@@ -1,5 +1,6 @@
 abstract type GraphNode end
 abstract type Operator <: GraphNode end
+const MaybeValue = Union{Real,AbstractArray,Nothing}
 
 struct Constant{T} <: GraphNode
     output::T
@@ -7,23 +8,25 @@ end
 
 mutable struct Variable{T} <: GraphNode
     output::T
-    gradient::Any
+    gradient::Union{T,Nothing}
     name::String
     Variable(output::T; name="?") where {T} = new{T}(output, nothing, name)
 end
 
+set_value!(variable::Variable, value) = variable.output = value
+
 mutable struct ScalarOperator{F} <: Operator
-    inputs::Any
-    output::Any
-    gradient::Any
+    inputs::Tuple
+    output::MaybeValue
+    gradient::MaybeValue
     name::String
     ScalarOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
 end
 
 mutable struct BroadcastedOperator{F} <: Operator
-    inputs::Any
-    output::Any
-    gradient::Any
+    inputs::Tuple
+    output::MaybeValue
+    gradient::MaybeValue
     name::String
     BroadcastedOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
 end
@@ -40,7 +43,7 @@ show(io::IO, x::Variable) = begin
     summary(io, x.gradient)
 end
 
-function visit(node::GraphNode, visited, order)
+function visit(node::GraphNode, visited::Set{GraphNode}, order::Vector{GraphNode})
     if node ∈ visited
     else
         push!(visited, node)
@@ -49,7 +52,7 @@ function visit(node::GraphNode, visited, order)
     return nothing
 end
 
-function visit(node::Operator, visited, order)
+function visit(node::Operator, visited::Set{GraphNode}, order::Vector{GraphNode})
     if node ∈ visited
     else
         push!(visited, node)
@@ -62,8 +65,8 @@ function visit(node::Operator, visited, order)
 end
 
 function topological_sort(head::GraphNode)
-    visited = Set()
-    order = Vector()
+    visited = Set{GraphNode}()
+    order = Vector{GraphNode}()
     visit(head, visited, order)
     return order
 end
@@ -77,7 +80,7 @@ compute!(node::Variable) = nothing
 compute!(node::Operator) =
     node.output = forward(node, [input.output for input in node.inputs]...)
 
-function forward!(order::Vector)
+function forward!(order::Vector{GraphNode})
     for node in order
         compute!(node)
         reset!(node)
@@ -85,15 +88,15 @@ function forward!(order::Vector)
     return last(order).output
 end
 
-update!(node::Constant, gradient) = nothing
-update!(node::GraphNode, gradient) =
+update!(node::Constant, gradient::MaybeValue) = nothing
+update!(node::GraphNode, gradient::MaybeValue) =
     if isnothing(node.gradient)
         node.gradient = gradient
     else
         node.gradient .+= gradient
     end
 
-function backward!(order::Vector; seed=1.0)
+function backward!(order::Vector{GraphNode}; seed=1.0)
     result = last(order)
     result.gradient = seed
     @assert length(result.output) == 1 "Gradient is defined only for scalar functions"
