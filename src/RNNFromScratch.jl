@@ -68,8 +68,6 @@ end
 @show loss_and_accuracy(net, test_data)
 
 for epoch in 1:settings.epochs
-    local limit = 100 # ain't nobody got time for that
-    local i = 1
     local loss = Inf
     @time for (x_mnist, y_mnist) in loader(train_data, batchsize=settings.batchsize)
         # x_mnist <- (28 * 28 = 784, batchsize = 100)
@@ -86,11 +84,6 @@ for epoch in 1:settings.epochs
         forward!(graph)
         backward!(graph)
         adjust_params(settings.eta)
-
-        if i == limit
-            break
-        end
-        i += 1
     end
 
     loss, acc = loss_and_accuracy(net, train_data)
