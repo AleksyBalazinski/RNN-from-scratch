@@ -1,8 +1,20 @@
 include("../autodiff/graph.jl")
 include("../autodiff/operations.jl")
 
+# nfan (as in Flux)
+nfan() = 1, 1
+nfan(n) = 1, n
+nfan(n_out, n_in) = n_in, n_out
+nfan(dims::Tuple) = nfan(dims...)
+nfan(dims...) = prod(dims[1:end-2]) .* (dims[end-1], dims[end])
+
+# Xavier weight initialization
 using Random
-Random.seed!(0)
+function glorot_uniform(dims::Integer...; gain::Real=1)
+    scale = Float32(gain) * sqrt(24.0f0 / sum(nfan(dims...)))
+    rng = Random.default_rng()
+    (rand(rng, Float32, dims...) .- 0.5f0) .* scale
+end
 
 mutable struct ModelState
     params::Vector{Variable}
@@ -33,8 +45,6 @@ end
 function chain(fs::Function...)
     return x -> foldl((acc, f) -> f(acc), fs, init=x)
 end
-
-using Flux: glorot_uniform
 
 function declare_var(size::Tuple{Int,Int}, name::String)
     var = Variable(glorot_uniform(size...); name)
