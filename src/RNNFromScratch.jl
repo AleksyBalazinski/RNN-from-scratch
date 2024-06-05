@@ -44,7 +44,7 @@ dense_in_size = rnn_out_size
 dense_out_size = 10
 
 net = chain(
-    rnn(rnn_in_size, rnn_out_size),
+    rnn(rnn_in_size, rnn_out_size, tanh),
     dense(dense_in_size, dense_out_size, bias=true)
 )
 

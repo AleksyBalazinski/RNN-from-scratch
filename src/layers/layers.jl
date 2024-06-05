@@ -42,6 +42,9 @@ function reset_hidden_state()
     end
 end
 
+"""
+Chain different layers together
+"""
 function chain(fs::Function...)
     return x -> foldl((acc, f) -> f(acc), fs, init=x)
 end
@@ -52,6 +55,9 @@ function declare_var(size::Tuple{Int,Int}, name::String)
     return var
 end
 
+"""
+Dense layer
+"""
 function dense(in_size::Int, out_size::Int, activation::Function; bias=false)
     W = declare_var((out_size, in_size), "W (dense)")
 
@@ -62,6 +68,9 @@ function dense(in_size::Int, out_size::Int, activation::Function; bias=false)
     return x -> activation.(W * x)
 end
 
+"""
+Dense layer with no activation function
+"""
 function dense(in_size::Int, out_size::Int; bias=false)
     W = declare_var((out_size, in_size), "W (dense)")
 
@@ -72,7 +81,7 @@ function dense(in_size::Int, out_size::Int; bias=false)
     return x -> W * x
 end
 
-function create_hidden(xs::Vector, b::Variable, W::Variable, U::Variable, out_size::Int)
+function create_hidden(xs::Vector, b::Variable, W::Variable, U::Variable, out_size::Int, σ::Function)
     empty!(model_state.hs)
     l = out_size # default
     _, m = size(first(xs).output)
@@ -84,7 +93,7 @@ function create_hidden(xs::Vector, b::Variable, W::Variable, U::Variable, out_si
     for t in 1:seq_len
         h = t == 1 ? h0 : hs[t-1]
         push!(as, W * h .+ U * xs[t] .+ b)
-        push!(hs, tanh.(as[t]))
+        push!(hs, σ.(as[t]))
     end
 
     for (i, h) in enumerate(hs)
@@ -95,7 +104,10 @@ function create_hidden(xs::Vector, b::Variable, W::Variable, U::Variable, out_si
     return hs
 end
 
-function rnn(in_size::Int, out_size::Int)
+"""
+Vanilla RNN layer
+"""
+function rnn(in_size::Int, out_size::Int, σ::Function=tanh)
     l = out_size # defualt
     b = declare_var((l, 1), "b (rnn)")
     W = declare_var((l, l), "W (rnn)")
@@ -103,9 +115,12 @@ function rnn(in_size::Int, out_size::Int)
     V = declare_var((out_size, l), "V (rnn)")
     c = declare_var((out_size, 1), "c (rnn)")
 
-    return xs -> V * last(create_hidden(xs, b, W, U, out_size)) .+ c
+    return xs -> V * last(create_hidden(xs, b, W, U, out_size, σ)) .+ c
 end
 
+"""
+One step of gradient descent
+"""
 function adjust_params(learning_rate::AbstractFloat)
     for param in model_state.params
         grad = param.gradient
