@@ -10,25 +10,31 @@ mutable struct Variable{T} <: GraphNode
     output::T
     gradient::Union{T,Nothing}
     name::String
-    Variable(output::T; name="?") where {T} = new{T}(output, nothing, name)
+    function Variable(output::T; name="?") where {T}
+        new{T}(output, nothing, name)
+    end
 end
 
 set_value!(variable::Variable, value) = variable.output = value
 
-mutable struct ScalarOperator{F} <: Operator
+mutable struct ScalarOperator{F,T} <: Operator
     inputs::Tuple
-    output::MaybeValue
+    output::T
     gradient::MaybeValue
     name::String
-    ScalarOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
+    function ScalarOperator(fun, output, inputs...; name="?")
+        new{typeof(fun),typeof(output)}(inputs, output, nothing, name)
+    end
 end
 
-mutable struct BroadcastedOperator{F} <: Operator
+mutable struct BroadcastedOperator{F,T} <: Operator
     inputs::Tuple
-    output::MaybeValue
+    output::T
     gradient::MaybeValue
     name::String
-    BroadcastedOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
+    function BroadcastedOperator(fun, output, inputs...; name="?")
+        new{typeof(fun),typeof(output)}(inputs, output, nothing, name)
+    end
 end
 
 import Base: show, summary
@@ -78,7 +84,7 @@ reset!(node::Operator) = node.gradient = nothing
 compute!(node::Constant) = nothing
 compute!(node::Variable) = nothing
 compute!(node::Operator) =
-    node.output = forward(node, [input.output for input in node.inputs]...)
+    forward(node, [input.output for input in node.inputs]...)
 
 function forward!(order::Vector{GraphNode})
     for node in order
