@@ -88,8 +88,8 @@ for epoch in 1:settings.epochs
             adjust_params(settings.eta)
         end
     end
-    @profilehtml a()
-    #a()
+    #@profilehtml a()
+    a()
 
     loss, acc = loss_and_accuracy(net, train_data)
     test_loss, test_acc = loss_and_accuracy(net, test_data)

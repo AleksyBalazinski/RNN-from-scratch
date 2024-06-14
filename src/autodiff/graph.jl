@@ -1,6 +1,6 @@
 abstract type GraphNode end
 abstract type Operator <: GraphNode end
-const MaybeValue = Union{Real,AbstractArray,Nothing}
+const MaybeValue = Union{Float64,Matrix{Float64},Nothing}
 
 struct Constant{T} <: GraphNode
     output::T
@@ -18,32 +18,34 @@ end
 
 set_value!(variable::Variable, value) = variable.output .= value
 
-mutable struct ScalarOperator{F} <: Operator
-    inputs::Tuple
+mutable struct ScalarOperator{F,T<:Tuple} <: Operator
+    inputs::T
     output::Float64
     gradient::Float64
     has_grad::Bool
     name::String
-    function ScalarOperator(fun, output, inputs...; name="?")
-        new{typeof(fun)}(inputs, output, 0.0, false, name)
+    function ScalarOperator(fun, output, inputs::Vararg{Any}; name="?")
+        new{typeof(fun),typeof(inputs)}(inputs, output, 0.0, false, name)
     end
 end
 
-mutable struct BroadcastedOperator{F} <: Operator
-    inputs::Tuple
+mutable struct BroadcastedOperator{F,T<:Tuple} <: Operator
+    inputs::T
     output::Matrix{Float64}
     gradient::Matrix{Float64}
     has_grad::Bool
     name::String
     temp::Tuple{Matrix{Float64},Matrix{Float64}}
-    function BroadcastedOperator(fun, output, inputs...; name="?")
 
-        temp = tuple(Array{Float64}(undef, 0, 0), Array{Float64}(undef, 0, 0))
+    function BroadcastedOperator(fun, output::Matrix{Float64}, inputs::Vararg{Any}; name::String="?")
+        temp = (Matrix{Float64}(undef, 0, 0), Matrix{Float64}(undef, 0, 0))
+
         if fun == mul!
-            temp = tuple(Array{Float64}(undef, size(output, 1), size(inputs[2].output, 1)), Array{Float64}(undef, size(inputs[1].output, 2), size(output, 2)))
+            temp = (Matrix{Float64}(undef, size(output, 1), size(inputs[2].output, 1)),
+                Matrix{Float64}(undef, size(inputs[1].output, 2), size(output, 2)))
         end
 
-        new{typeof(fun)}(inputs, output, Array{Float64}(undef, 0, 0), false, name, temp)
+        new{typeof(fun),typeof(inputs)}(inputs, output, Matrix{Float64}(undef, 0, 0), false, name, temp)
     end
 end
 
