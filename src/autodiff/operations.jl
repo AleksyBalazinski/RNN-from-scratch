@@ -47,12 +47,12 @@ function backward(op::BroadcastedOperator{typeof(σ)}, x, g)
 end
 
 Base.Broadcast.broadcasted(tanh, x::GraphNode) = BroadcastedOperator(tanh, Array{Float64,2}(undef, size(x.output, 1), size(x.output, 2)), x)
-function forward(o::BroadcastedOperator{typeof(tanh)}, x)
+function forward(o::BroadcastedOperator{typeof(tanh)}, x::Matrix{Float64})
     @inbounds @simd for i in eachindex(x)
         o.output[i] = tanh(x[i])
     end
 end
-function backward(op::BroadcastedOperator{typeof(tanh)}, x, g)
+function backward(op::BroadcastedOperator{typeof(tanh)}, x::Matrix{Float64}, g::Matrix{Float64})
     y = op.output
     res = (1 .- y .^ 2) .* g
     return tuple(res)
