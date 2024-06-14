@@ -66,6 +66,6 @@ function backward(::ScalarOperator{typeof(cross_entropy)}, ŷ, y, g)
     p = e ./ sum(e, dims=1)
 
     dŷ = 1 / m * (p .- y)
-    dy = nothing
+    dy = zero(y)
     return tuple(dŷ, dy)
 end

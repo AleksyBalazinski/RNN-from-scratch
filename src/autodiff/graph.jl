@@ -17,18 +17,18 @@ set_value!(variable::Variable, value) = variable.output = value
 
 mutable struct ScalarOperator{F} <: Operator
     inputs::Tuple
-    output::MaybeValue
+    output::Float64
     gradient::MaybeValue
     name::String
-    ScalarOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
+    ScalarOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, 0.0, nothing, name)
 end
 
 mutable struct BroadcastedOperator{F} <: Operator
     inputs::Tuple
-    output::MaybeValue
+    output::Matrix{Float64}
     gradient::MaybeValue
     name::String
-    BroadcastedOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
+    BroadcastedOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, Array{Float64}(undef, 0, 0), nothing, name)
 end
 
 import Base: show, summary
