@@ -1,5 +1,3 @@
-include("autodiff/graph.jl")
-include("autodiff/operations.jl")
 include("layers/layers.jl")
 Random.seed!(1)
 

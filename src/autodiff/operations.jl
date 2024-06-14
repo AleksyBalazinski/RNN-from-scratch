@@ -1,3 +1,4 @@
+include("graph.jl")
 import Base: ^
 ^(x::GraphNode, n::Constant) = ScalarOperator(^, x, n)
 forward(::ScalarOperator{typeof(^)}, x, n) = return x^n

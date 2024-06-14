@@ -1,4 +1,3 @@
-include("../autodiff/graph.jl")
 include("../autodiff/operations.jl")
 
 # nfan (as in Flux)
@@ -10,8 +9,8 @@ nfan(dims...) = prod(dims[1:end-2]) .* (dims[end-1], dims[end])
 
 # Xavier weight initialization
 using Random
-function glorot_uniform(dims::Integer...; gain::Real=1)
-    scale = Float32(gain) * sqrt(24.0f0 / sum(nfan(dims...)))
+function glorot_uniform(dims::Integer...; gain::Float64=1.0)
+    scale = Float64(gain) * sqrt(24.0f0 / sum(nfan(dims...)))
     rng = Random.default_rng()
     (rand(rng, Float32, dims...) .- 0.5f0) .* scale
 end
