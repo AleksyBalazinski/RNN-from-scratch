@@ -50,7 +50,8 @@ seq_len = 4
 in_size = 196
 num_classes = 10
 num_epochs = 5
-batch_size = 32
+batch_size = 100
+learning_rate = 15e-3
 
 X_train = X_train.reshape(-1, seq_len, in_size)
 X_validation = X_validation.reshape(-1, seq_len, in_size)
@@ -61,11 +62,11 @@ def RNN_model(rnn_out_size, num_classes):
     model = tf.keras.Sequential()
     model.add(tf.keras.layers.InputLayer(input_shape=(seq_len, in_size)))
     model.add(tf.keras.layers.SimpleRNN(rnn_out_size))
-    model.add(tf.keras.layers.Dense(num_classes, activation=None, kernel_initializer=tf.keras.initializers.Orthogonal()))
+    model.add(tf.keras.layers.Dense(num_classes, activation=None))
     return model
 
 model = RNN_model(rnn_out_size, num_classes)
-model.compile(optimizer=tf.keras.optimizers.SGD(), loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
+model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate), loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
 
 # Train the model
 model.fit(X_train, Y_train, validation_data=(X_validation, Y_validation), epochs=num_epochs, batch_size=batch_size, callbacks=[etimer()])
