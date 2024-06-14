@@ -12,12 +12,20 @@ backward(::ScalarOperator{typeof(sin)}, x, g) = tuple(g * cos(x))
 
 import Base: *
 import LinearAlgebra: mul!
+import LinearAlgebra.BLAS: gemm!
 # x * y (aka matrix multiplication)
 *(x::GraphNode, y::GraphNode) = BroadcastedOperator(mul!, Array{Float64,2}(undef, size(x.output, 1), size(y.output, 2)), x, y)
-forward(o::BroadcastedOperator{typeof(mul!)}, x, y) = mul!(o.output, x, y)
-function backward(o::BroadcastedOperator{typeof(mul!)}, x, y, g)
-    mul!(o.temp[1], g, y')
-    mul!(o.temp[2], x', g)
+function forward(o::BroadcastedOperator{typeof(mul!)}, x::Matrix{Float64}, y::Matrix{Float64})
+    mul!(o.output, x, y)
+end
+
+function forward(o::BroadcastedOperator{typeof(mul!)}, x::Matrix{Float64}, y::Matrix{Float32})
+    mul!(o.output, x, y)
+end
+
+function backward(o::BroadcastedOperator{typeof(mul!)}, x::Matrix{Float64}, y::Matrix{Float64}, g::Matrix{Float64})
+    gemm!('N', 'T', 1.0, g, y, 0.0, o.temp[1])
+    gemm!('T', 'N', 1.0, x, g, 0.0, o.temp[2])
     return tuple(o.temp[1], o.temp[2])
 end
 
@@ -39,7 +47,7 @@ function backward(op::BroadcastedOperator{typeof(σ)}, x, g)
 end
 
 Base.Broadcast.broadcasted(tanh, x::GraphNode) = BroadcastedOperator(tanh, Array{Float64,2}(undef, size(x.output, 1), size(x.output, 2)), x)
-function forward(o::BroadcastedOperator{typeof(tanh)}, x) 
+function forward(o::BroadcastedOperator{typeof(tanh)}, x)
     @inbounds @simd for i in eachindex(x)
         o.output[i] = tanh(x[i])
     end

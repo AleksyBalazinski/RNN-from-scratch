@@ -87,9 +87,9 @@ for epoch in 1:settings.epochs
             backward!(graph)
             adjust_params(settings.eta)
         end
-    end 
-    # @profilehtml a()
-    a()
+    end
+    @profilehtml a()
+    #a()
 
     loss, acc = loss_and_accuracy(net, train_data)
     test_loss, test_acc = loss_and_accuracy(net, test_data)

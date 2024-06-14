@@ -35,9 +35,9 @@ mutable struct BroadcastedOperator{F} <: Operator
     gradient::Matrix{Float64}
     has_grad::Bool
     name::String
-    temp::Tuple
+    temp::Tuple{Matrix{Float64},Matrix{Float64}}
     function BroadcastedOperator(fun, output, inputs...; name="?")
-        
+
         temp = tuple(Array{Float64}(undef, 0, 0), Array{Float64}(undef, 0, 0))
         if fun == mul!
             temp = tuple(Array{Float64}(undef, size(output, 1), size(inputs[2].output, 1)), Array{Float64}(undef, size(inputs[1].output, 2), size(output, 2)))
