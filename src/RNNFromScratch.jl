@@ -66,24 +66,30 @@ end
 
 @show loss_and_accuracy(net, test_data)
 
+using StatProfilerHTML
+
 for epoch in 1:settings.epochs
     local loss = Inf
-    @time for (x_mnist, y_mnist) in loader(train_data, batchsize=settings.batchsize)
-        # x_mnist <- (28 * 28 = 784, batchsize = 100)
-        # y_mnist <- (10, batchsize = 100)
+    function a()
+        @time for (x_mnist, y_mnist) in loader(train_data, batchsize=settings.batchsize)
+            # x_mnist <- (28 * 28 = 784, batchsize = 100)
+            # y_mnist <- (10, batchsize = 100)
 
-        reset_hidden_state()
+            reset_hidden_state()
 
-        set_value!(xs[1], x_mnist[1:196, :])
-        set_value!(xs[2], x_mnist[197:392, :])
-        set_value!(xs[3], x_mnist[393:588, :])
-        set_value!(xs[4], x_mnist[589:end, :])
-        set_value!(y, y_mnist)
+            set_value!(xs[1], x_mnist[1:196, :])
+            set_value!(xs[2], x_mnist[197:392, :])
+            set_value!(xs[3], x_mnist[393:588, :])
+            set_value!(xs[4], x_mnist[589:end, :])
+            set_value!(y, y_mnist)
 
-        forward!(graph)
-        backward!(graph)
-        adjust_params(settings.eta)
-    end
+            forward!(graph)
+            backward!(graph)
+            adjust_params(settings.eta)
+        end
+    end 
+    # @profilehtml a()
+    a()
 
     loss, acc = loss_and_accuracy(net, train_data)
     test_loss, test_acc = loss_and_accuracy(net, test_data)

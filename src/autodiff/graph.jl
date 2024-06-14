@@ -16,7 +16,7 @@ mutable struct Variable{T} <: GraphNode
     end
 end
 
-set_value!(variable::Variable, value) = variable.output = value
+set_value!(variable::Variable, value) = variable.output .= value
 
 mutable struct ScalarOperator{F} <: Operator
     inputs::Tuple
@@ -35,8 +35,15 @@ mutable struct BroadcastedOperator{F} <: Operator
     gradient::Matrix{Float64}
     has_grad::Bool
     name::String
+    temp::Tuple
     function BroadcastedOperator(fun, output, inputs...; name="?")
-        new{typeof(fun)}(inputs, output, Array{Float64}(undef, 0, 0), false, name)
+        
+        temp = tuple(Array{Float64}(undef, 0, 0), Array{Float64}(undef, 0, 0))
+        if fun == mul!
+            temp = tuple(Array{Float64}(undef, size(output, 1), size(inputs[2].output, 1)), Array{Float64}(undef, size(inputs[1].output, 2), size(output, 2)))
+        end
+
+        new{typeof(fun)}(inputs, output, Array{Float64}(undef, 0, 0), false, name, temp)
     end
 end
 

@@ -12,7 +12,7 @@ using Random
 function glorot_uniform(dims::Integer...; gain::Float64=1.0)
     scale = Float64(gain) * sqrt(24.0f0 / sum(nfan(dims...)))
     rng = Random.default_rng()
-    (rand(rng, Float32, dims...) .- 0.5f0) .* scale
+    (rand(rng, Float64, dims...) .- 0.5f0) .* scale
 end
 
 mutable struct ModelState
@@ -36,7 +36,7 @@ end
 
 function reset_hidden_state()
     for h in model_state.hs
-        fill!(h.output, zero(eltype(h.output)))
+        fill!(h.output, 0)
         h.has_grad = false
     end
 end

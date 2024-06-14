@@ -15,7 +15,11 @@ import LinearAlgebra: mul!
 # x * y (aka matrix multiplication)
 *(x::GraphNode, y::GraphNode) = BroadcastedOperator(mul!, Array{Float64,2}(undef, size(x.output, 1), size(y.output, 2)), x, y)
 forward(o::BroadcastedOperator{typeof(mul!)}, x, y) = mul!(o.output, x, y)
-backward(::BroadcastedOperator{typeof(mul!)}, x, y, g) = tuple(g * y', x' * g)
+function backward(o::BroadcastedOperator{typeof(mul!)}, x, y, g)
+    mul!(o.temp[1], g, y')
+    mul!(o.temp[2], x', g)
+    return tuple(o.temp[1], o.temp[2])
+end
 
 Base.Broadcast.broadcasted(-, x::GraphNode, y::GraphNode) = BroadcastedOperator(-, Array{Float64,2}(undef, size(x.output)), x, y)
 forward(o::BroadcastedOperator{typeof(-)}, x, y) = broadcast!(-, o.output, x, y)
@@ -35,7 +39,11 @@ function backward(op::BroadcastedOperator{typeof(σ)}, x, g)
 end
 
 Base.Broadcast.broadcasted(tanh, x::GraphNode) = BroadcastedOperator(tanh, Array{Float64,2}(undef, size(x.output, 1), size(x.output, 2)), x)
-forward(o::BroadcastedOperator{typeof(tanh)}, x) = o.output[:] = tanh.(x)
+function forward(o::BroadcastedOperator{typeof(tanh)}, x) 
+    @inbounds @simd for i in eachindex(x)
+        o.output[i] = tanh(x[i])
+    end
+end
 function backward(op::BroadcastedOperator{typeof(tanh)}, x, g)
     y = op.output
     res = (1 .- y .^ 2) .* g
