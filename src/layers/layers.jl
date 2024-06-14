@@ -37,7 +37,7 @@ end
 function reset_hidden_state()
     for h in model_state.hs
         fill!(h.output, zero(eltype(h.output)))
-        h.gradient = nothing
+        h.has_grad = false
     end
 end
 

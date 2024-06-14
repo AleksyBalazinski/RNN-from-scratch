@@ -11,7 +11,9 @@ mutable struct Variable{T} <: GraphNode
     gradient::Union{T,Nothing}
     has_grad::Bool
     name::String
-    Variable(output::T; name="?") where {T} = new{T}(output, nothing, false, name)
+    function Variable(output::T; name="?") where {T}
+        new{T}(output, nothing, false, name)
+    end
 end
 
 set_value!(variable::Variable, value) = variable.output = value
@@ -22,7 +24,9 @@ mutable struct ScalarOperator{F} <: Operator
     gradient::Float64
     has_grad::Bool
     name::String
-    ScalarOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, 0.0, 0.0, false, name)
+    function ScalarOperator(fun, output, inputs...; name="?")
+        new{typeof(fun)}(inputs, output, 0.0, false, name)
+    end
 end
 
 mutable struct BroadcastedOperator{F} <: Operator
@@ -31,7 +35,9 @@ mutable struct BroadcastedOperator{F} <: Operator
     gradient::Matrix{Float64}
     has_grad::Bool
     name::String
-    BroadcastedOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, Array{Float64}(undef, 0, 0), Array{Float64}(undef, 0, 0), false, name)
+    function BroadcastedOperator(fun, output, inputs...; name="?")
+        new{typeof(fun)}(inputs, output, Array{Float64}(undef, 0, 0), false, name)
+    end
 end
 
 import Base: show, summary
@@ -81,7 +87,7 @@ reset!(node::Operator) = node.has_grad = false
 compute!(node::Constant) = nothing
 compute!(node::Variable) = nothing
 compute!(node::Operator) =
-    node.output = forward(node, [input.output for input in node.inputs]...)
+    forward(node, [input.output for input in node.inputs]...)
 
 function forward!(order::Vector{GraphNode})
     for node in order
