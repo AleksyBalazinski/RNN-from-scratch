@@ -9,8 +9,9 @@ end
 mutable struct Variable{T} <: GraphNode
     output::T
     gradient::Union{T,Nothing}
+    has_grad::Bool
     name::String
-    Variable(output::T; name="?") where {T} = new{T}(output, nothing, name)
+    Variable(output::T; name="?") where {T} = new{T}(output, nothing, false, name)
 end
 
 set_value!(variable::Variable, value) = variable.output = value
@@ -18,17 +19,19 @@ set_value!(variable::Variable, value) = variable.output = value
 mutable struct ScalarOperator{F} <: Operator
     inputs::Tuple
     output::Float64
-    gradient::MaybeValue
+    gradient::Float64
+    has_grad::Bool
     name::String
-    ScalarOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, 0.0, nothing, name)
+    ScalarOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, 0.0, 0.0, false, name)
 end
 
 mutable struct BroadcastedOperator{F} <: Operator
     inputs::Tuple
     output::Matrix{Float64}
-    gradient::MaybeValue
+    gradient::Matrix{Float64}
+    has_grad::Bool
     name::String
-    BroadcastedOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, Array{Float64}(undef, 0, 0), nothing, name)
+    BroadcastedOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, Array{Float64}(undef, 0, 0), Array{Float64}(undef, 0, 0), false, name)
 end
 
 import Base: show, summary
@@ -72,8 +75,8 @@ function topological_sort(head::GraphNode)
 end
 
 reset!(node::Constant) = nothing
-reset!(node::Variable) = node.gradient = nothing
-reset!(node::Operator) = node.gradient = nothing
+reset!(node::Variable) = node.has_grad = false
+reset!(node::Operator) = node.has_grad = false
 
 compute!(node::Constant) = nothing
 compute!(node::Variable) = nothing
@@ -89,12 +92,18 @@ function forward!(order::Vector{GraphNode})
 end
 
 update!(node::Constant, gradient::MaybeValue) = nothing
-update!(node::GraphNode, gradient::MaybeValue) =
-    if isnothing(node.gradient)
+function update!(node::GraphNode, gradient::MaybeValue)
+    if isnothing(gradient)
+        node.has_grad = false
+        return
+    end
+    if !node.has_grad
         node.gradient = gradient
+        node.has_grad = true
     else
         node.gradient .+= gradient
     end
+end
 
 function backward!(order::Vector{GraphNode}; seed=1.0)
     result = last(order)
