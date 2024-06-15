@@ -35,17 +35,21 @@ mutable struct BroadcastedOperator{F} <: Operator
     gradient::Matrix{Float32}
     has_grad::Bool
     name::String
-    temp::Tuple{Matrix{Float32},Matrix{Float32}}
+    temp_mul::Tuple{Matrix{Float32},Matrix{Float32}}
+    temp_broadcast::Matrix{Float32}
 
     function BroadcastedOperator(fun, output::Matrix{Float32}, inputs...; name::String="?")
-        temp = (Matrix{Float32}(undef, 0, 0), Matrix{Float32}(undef, 0, 0))
+        temp_mul = (Matrix{Float32}(undef, 0, 0), Matrix{Float32}(undef, 0, 0))
+        temp_broadcast = Matrix{Float32}(undef, 0, 0)
 
         if fun == mul!
-            temp = (Matrix{Float32}(undef, size(output, 1), size(inputs[2].output, 1)),
+            temp_mul = (Matrix{Float32}(undef, size(output, 1), size(inputs[2].output, 1)),
                 Matrix{Float32}(undef, size(inputs[1].output, 2), size(output, 2)))
+        else
+            temp_broadcast = Matrix{Float32}(undef, size(output))
         end
 
-        new{typeof(fun)}(inputs, output, Matrix{Float32}(undef, 0, 0), false, name, temp)
+        new{typeof(fun)}(inputs, output, Matrix{Float32}(undef, 0, 0), false, name, temp_mul, temp_broadcast)
     end
 end
 

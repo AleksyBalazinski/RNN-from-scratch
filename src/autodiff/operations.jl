@@ -20,9 +20,9 @@ function forward(o::BroadcastedOperator{typeof(mul!)}, x::Matrix{Float32}, y::Ma
 end
 
 function backward(o::BroadcastedOperator{typeof(mul!)}, x::Matrix{Float32}, y::Matrix{Float32}, g::Matrix{Float32})
-    gemm!('N', 'T', 1.0f0, g, y, 0.0f0, o.temp[1])
-    gemm!('T', 'N', 1.0f0, x, g, 0.0f0, o.temp[2])
-    return tuple(o.temp[1], o.temp[2])
+    gemm!('N', 'T', 1.0f0, g, y, 0.0f0, o.temp_mul[1])
+    gemm!('T', 'N', 1.0f0, x, g, 0.0f0, o.temp_mul[2])
+    return tuple(o.temp_mul[1], o.temp_mul[2])
 end
 
 Base.Broadcast.broadcasted(-, x::GraphNode, y::GraphNode) = BroadcastedOperator(-, Matrix{Float32}(undef, size(x.output)), x, y)
@@ -42,7 +42,7 @@ backward(::ScalarOperator{typeof(+)}, x, y, g) = tuple(g, g)
 Base.Broadcast.broadcasted(σ, x::GraphNode) = BroadcastedOperator(σ, Matrix{Float32}(undef, size(x.output)), x)
 forward(o::BroadcastedOperator{typeof(σ)}, x::Matrix{Float32}) = o.output .= σ.(x)
 function backward(op::BroadcastedOperator{typeof(σ)}, ::Matrix{Float32}, g::Matrix{Float32})
-    y .= op.output
+    y = op.output
     res = y .* (1.0f0 .- y) .* g
     return tuple(res)
 end
@@ -61,8 +61,8 @@ function forward(o::BroadcastedOperator{typeof(tanh)}, x::Matrix{Float32})
 end
 function backward(op::BroadcastedOperator{typeof(tanh)}, ::Matrix{Float32}, g::Matrix{Float32})
     y = op.output
-    res = (1.0f0 .- y .^ 2) .* g
-    return tuple(res)
+    @. op.temp_broadcast = (1.0f0 - y^2) * g
+    return tuple(op.temp_broadcast)
 end
 
 import Base: tanh
