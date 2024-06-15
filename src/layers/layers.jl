@@ -1,4 +1,3 @@
-include("../autodiff/graph.jl")
 include("../autodiff/operations.jl")
 
 # nfan (as in Flux)
@@ -10,8 +9,8 @@ nfan(dims...) = prod(dims[1:end-2]) .* (dims[end-1], dims[end])
 
 # Xavier weight initialization
 using Random
-function glorot_uniform(dims::Integer...; gain::Real=1)
-    scale = Float32(gain) * sqrt(24.0f0 / sum(nfan(dims...)))
+function glorot_uniform(dims::Integer...; gain::Float32=1.0f0)
+    scale = gain * sqrt(24.0f0 / sum(nfan(dims...)))
     rng = Random.default_rng()
     (rand(rng, Float32, dims...) .- 0.5f0) .* scale
 end
@@ -37,8 +36,8 @@ end
 
 function reset_hidden_state()
     for h in model_state.hs
-        fill!(h.output, zero(eltype(h.output)))
-        h.gradient = nothing
+        fill!(h.output, 0)
+        h.has_grad = false
     end
 end
 
@@ -86,7 +85,7 @@ function create_hidden(xs::Vector, b::Variable, W::Variable, U::Variable, out_si
     l = out_size # default
     _, m = size(first(xs).output)
     seq_len = length(xs)
-    h0 = Variable(zeros(l, m), name="h0")
+    h0 = Variable(zeros(Float32, l, m), name="h0")
 
     as = Vector{GraphNode}()
     hs = Vector{GraphNode}()
@@ -121,7 +120,7 @@ end
 """
 One step of gradient descent
 """
-function adjust_params(learning_rate::AbstractFloat)
+function adjust_params(learning_rate::Float32)
     for param in model_state.params
         grad = param.gradient
         if size(param.output, 2) == 1

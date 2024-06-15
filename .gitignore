@@ -25,3 +25,5 @@ Manifest.toml
 
 # VS code
 .vscode/
+
+statprof/

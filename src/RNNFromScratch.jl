@@ -1,12 +1,21 @@
-include("autodiff/graph.jl")
-include("autodiff/operations.jl")
 include("layers/layers.jl")
 Random.seed!(1)
 
 using MLDatasets, Flux
 
-train_data = MLDatasets.MNIST(split=:train)
-test_data = MLDatasets.MNIST(split=:test)
+macro opt_prof(expr)
+    if length(ARGS) >= 1 && ARGS[1] == "withprof"
+        esc(quote
+            @profilehtml $expr
+        end
+        )
+    else
+        expr
+    end
+end
+
+train_data = MLDatasets.MNIST(split=:train, Tx=Float32)
+test_data = MLDatasets.MNIST(split=:test, Tx=Float32)
 
 function loader(data::MNIST; batchsize::Int=1)
     x1dim = reshape(data.features, 28 * 28, :)
@@ -27,13 +36,13 @@ function loss_and_accuracy(model::Function, data::MNIST)
 
     reset_hidden_state()
     loss = forward!(graph)
-    acc = round(100 * mean(Flux.onecold(ŷ.output) .== Flux.onecold(y_test)); digits=2)
+    acc = round(100 * Float32(mean(Flux.onecold(ŷ.output) .== Flux.onecold(y_test))); digits=2)
 
     return (loss, acc)
 end
 
 settings = (;
-    eta=15e-3,
+    eta=Float32(15e-3),
     epochs=5,
     batchsize=100,
 )
@@ -49,11 +58,12 @@ net = chain(
     dense(dense_in_size, dense_out_size, bias=true)
 )
 
-xs = [Variable(zeros(rnn_in_size, settings.batchsize); name="x" * string(i)) for i in 1:seq_len]
+xs = [Variable(Matrix{Float32}(undef, rnn_in_size, settings.batchsize); name="x" * string(i)) for i in 1:seq_len]
 ŷ = net(xs)
 ŷ.name = "ŷ"
 
-y = Variable(zeros(dense_out_size, settings.batchsize))
+y = Variable(Matrix{Float32}(undef, dense_out_size, settings.batchsize))
+
 E = cross_entropy(ŷ, y)
 E.name = "loss"
 
@@ -68,9 +78,11 @@ end
 
 @show loss_and_accuracy(net, test_data)
 
+using StatProfilerHTML
+
 for epoch in 1:settings.epochs
     local loss = Inf
-    @time for (x_mnist, y_mnist) in loader(train_data, batchsize=settings.batchsize)
+    @opt_prof @time for (x_mnist, y_mnist) in loader(train_data, batchsize=settings.batchsize)
         # x_mnist <- (28 * 28 = 784, batchsize = 100)
         # y_mnist <- (10, batchsize = 100)
 

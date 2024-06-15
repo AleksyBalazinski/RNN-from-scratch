@@ -1,6 +1,6 @@
 abstract type GraphNode end
 abstract type Operator <: GraphNode end
-const MaybeValue = Union{Real,AbstractArray,Nothing}
+const MaybeValue = Union{Float32,Matrix{Float32},Nothing}
 
 struct Constant{T} <: GraphNode
     output::T
@@ -9,26 +9,48 @@ end
 mutable struct Variable{T} <: GraphNode
     output::T
     gradient::Union{T,Nothing}
+    has_grad::Bool
     name::String
-    Variable(output::T; name="?") where {T} = new{T}(output, nothing, name)
+    function Variable(output::T; name="?") where {T}
+        new{T}(output, nothing, false, name)
+    end
 end
 
-set_value!(variable::Variable, value) = variable.output = value
+set_value!(variable::Variable, value) = variable.output .= value
 
 mutable struct ScalarOperator{F} <: Operator
     inputs::Tuple
-    output::MaybeValue
-    gradient::MaybeValue
+    output::Float32
+    gradient::Float32
+    has_grad::Bool
     name::String
-    ScalarOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
+    function ScalarOperator(fun, output, inputs...; name="?")
+        new{typeof(fun)}(inputs, output, 0.0f0, false, name)
+    end
 end
 
 mutable struct BroadcastedOperator{F} <: Operator
     inputs::Tuple
-    output::MaybeValue
-    gradient::MaybeValue
+    output::Matrix{Float32}
+    gradient::Matrix{Float32}
+    has_grad::Bool
     name::String
-    BroadcastedOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
+    temp_mul::Tuple{Matrix{Float32},Matrix{Float32}}
+    temp_broadcast::Matrix{Float32}
+
+    function BroadcastedOperator(fun, output::Matrix{Float32}, inputs...; name::String="?")
+        temp_mul = (Matrix{Float32}(undef, 0, 0), Matrix{Float32}(undef, 0, 0))
+        temp_broadcast = Matrix{Float32}(undef, 0, 0)
+
+        if fun == mul!
+            temp_mul = (Matrix{Float32}(undef, size(output, 1), size(inputs[2].output, 1)),
+                Matrix{Float32}(undef, size(inputs[1].output, 2), size(output, 2)))
+        else
+            temp_broadcast = Matrix{Float32}(undef, size(output))
+        end
+
+        new{typeof(fun)}(inputs, output, Matrix{Float32}(undef, 0, 0), false, name, temp_mul, temp_broadcast)
+    end
 end
 
 import Base: show, summary
@@ -72,13 +94,14 @@ function topological_sort(head::GraphNode)
 end
 
 reset!(node::Constant) = nothing
-reset!(node::Variable) = node.gradient = nothing
-reset!(node::Operator) = node.gradient = nothing
+reset!(node::Variable) = node.has_grad = false
+reset!(node::Operator) = node.has_grad = false
 
 compute!(node::Constant) = nothing
 compute!(node::Variable) = nothing
-compute!(node::Operator) =
-    node.output = forward(node, [input.output for input in node.inputs]...)
+function compute!(node::Operator)
+    forward(node, [input.output for input in node.inputs]...)
+end
 
 function forward!(order::Vector{GraphNode})
     for node in order
@@ -89,14 +112,20 @@ function forward!(order::Vector{GraphNode})
 end
 
 update!(node::Constant, gradient::MaybeValue) = nothing
-update!(node::GraphNode, gradient::MaybeValue) =
-    if isnothing(node.gradient)
+function update!(node::GraphNode, gradient::MaybeValue)
+    if isnothing(gradient)
+        node.has_grad = false
+        return
+    end
+    if !node.has_grad
         node.gradient = gradient
+        node.has_grad = true
     else
         node.gradient .+= gradient
     end
+end
 
-function backward!(order::Vector{GraphNode}; seed=1.0)
+function backward!(order::Vector{GraphNode}; seed=1.0f0)
     result = last(order)
     result.gradient = seed
     @assert length(result.output) == 1 "Gradient is defined only for scalar functions"
