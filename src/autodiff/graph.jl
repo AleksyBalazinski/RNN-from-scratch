@@ -1,6 +1,6 @@
 abstract type GraphNode end
 abstract type Operator <: GraphNode end
-const MaybeValue = Union{Float64,Matrix{Float64},Nothing}
+const MaybeValue = Union{Float32,Matrix{Float32},Nothing}
 
 struct Constant{T} <: GraphNode
     output::T
@@ -18,34 +18,34 @@ end
 
 set_value!(variable::Variable, value) = variable.output .= value
 
-mutable struct ScalarOperator{F,T<:Tuple} <: Operator
-    inputs::T
-    output::Float64
-    gradient::Float64
+mutable struct ScalarOperator{F} <: Operator
+    inputs::Tuple
+    output::Float32
+    gradient::Float32
     has_grad::Bool
     name::String
-    function ScalarOperator(fun, output, inputs::Vararg{Any}; name="?")
-        new{typeof(fun),typeof(inputs)}(inputs, output, 0.0, false, name)
+    function ScalarOperator(fun, output, inputs...; name="?")
+        new{typeof(fun)}(inputs, output, 0.0f0, false, name)
     end
 end
 
-mutable struct BroadcastedOperator{F,T<:Tuple} <: Operator
-    inputs::T
-    output::Matrix{Float64}
-    gradient::Matrix{Float64}
+mutable struct BroadcastedOperator{F} <: Operator
+    inputs::Tuple
+    output::Matrix{Float32}
+    gradient::Matrix{Float32}
     has_grad::Bool
     name::String
-    temp::Tuple{Matrix{Float64},Matrix{Float64}}
+    temp::Tuple{Matrix{Float32},Matrix{Float32}}
 
-    function BroadcastedOperator(fun, output::Matrix{Float64}, inputs::Vararg{Any}; name::String="?")
-        temp = (Matrix{Float64}(undef, 0, 0), Matrix{Float64}(undef, 0, 0))
+    function BroadcastedOperator(fun, output::Matrix{Float32}, inputs...; name::String="?")
+        temp = (Matrix{Float32}(undef, 0, 0), Matrix{Float32}(undef, 0, 0))
 
         if fun == mul!
-            temp = (Matrix{Float64}(undef, size(output, 1), size(inputs[2].output, 1)),
-                Matrix{Float64}(undef, size(inputs[1].output, 2), size(output, 2)))
+            temp = (Matrix{Float32}(undef, size(output, 1), size(inputs[2].output, 1)),
+                Matrix{Float32}(undef, size(inputs[1].output, 2), size(output, 2)))
         end
 
-        new{typeof(fun),typeof(inputs)}(inputs, output, Matrix{Float64}(undef, 0, 0), false, name, temp)
+        new{typeof(fun)}(inputs, output, Matrix{Float32}(undef, 0, 0), false, name, temp)
     end
 end
 
@@ -95,8 +95,9 @@ reset!(node::Operator) = node.has_grad = false
 
 compute!(node::Constant) = nothing
 compute!(node::Variable) = nothing
-compute!(node::Operator) =
+function compute!(node::Operator)
     forward(node, [input.output for input in node.inputs]...)
+end
 
 function forward!(order::Vector{GraphNode})
     for node in order
@@ -120,7 +121,7 @@ function update!(node::GraphNode, gradient::MaybeValue)
     end
 end
 
-function backward!(order::Vector{GraphNode}; seed=1.0)
+function backward!(order::Vector{GraphNode}; seed=1.0f0)
     result = last(order)
     result.gradient = seed
     @assert length(result.output) == 1 "Gradient is defined only for scalar functions"
