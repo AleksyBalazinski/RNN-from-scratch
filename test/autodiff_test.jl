@@ -3,8 +3,8 @@ include("../src/autodiff/graph.jl")
 include("../src/autodiff/operations.jl")
 
 # sin(x^2) at x = 1.4
-x = Variable(1.4, name="x")
-two = Constant(2)
+x = Variable(1.40f0, name="x")
+two = Constant(2.0f0)
 y = sin(x^two)
 
 graph = topological_sort(y)
@@ -15,10 +15,10 @@ backward!(graph)
 @test x.gradient ≈ -1.062 atol = 0.001
 
 # sigmoid(tanh(x+y)) at x = 0.5, y = 0.3
-x = Variable(0.5, name="x")
-y = Variable(0.3, name="y")
+x = Variable(0.50f0, name="x")
+y = Variable(0.30f0, name="y")
 
-z = σ.(tanh.(x .+ y))
+z = σ(tanh(x + y))
 graph = topological_sort(z)
 res = forward!(graph)
 backward!(graph)

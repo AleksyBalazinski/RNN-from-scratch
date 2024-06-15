@@ -1,14 +1,14 @@
 include("graph.jl")
 
 import Base: ^
-^(x::GraphNode, n::Constant) = ScalarOperator(^, x, n)
-forward(::ScalarOperator{typeof(^)}, x, n) = return x^n
-backward(::ScalarOperator{typeof(^)}, x, n, g) = tuple(g * n * x^(n - 1), 0)
+^(x::GraphNode, n::Constant) = ScalarOperator(^, 0.0f0, x, n)
+forward(o::ScalarOperator{typeof(^)}, x::Float32, n::Float32) = o.output = x^n
+backward(::ScalarOperator{typeof(^)}, x::Float32, n::Float32, g::Float32) = tuple(g * n * x^(n - 1), 0.0f0)
 
 import Base: sin
-sin(x::GraphNode) = ScalarOperator(sin, x)
-forward(::ScalarOperator{typeof(sin)}, x) = return sin(x)
-backward(::ScalarOperator{typeof(sin)}, x, g) = tuple(g * cos(x))
+sin(x::GraphNode) = ScalarOperator(sin, 0.0f0, x)
+forward(o::ScalarOperator{typeof(sin)}, x::Float32) = o.output = sin(x)
+backward(::ScalarOperator{typeof(sin)}, x::Float32, g::Float32) = tuple(g * cos(x))
 
 import Base: *
 import LinearAlgebra: mul!
@@ -33,12 +33,25 @@ Base.Broadcast.broadcasted(+, x::GraphNode, y::GraphNode) = BroadcastedOperator(
 forward(o::BroadcastedOperator{typeof(+)}, x::Matrix{Float32}, y::Matrix{Float32}) = broadcast!(+, o.output, x, y)
 backward(::BroadcastedOperator{typeof(+)}, x::Matrix{Float32}, y::Matrix{Float32}, g::Matrix{Float32}) = tuple(g, g)
 
+import Base: +
++(x::GraphNode, y::GraphNode) = ScalarOperator(+, 0.0f0, x, y)
+forward(o::ScalarOperator{typeof(+)}, x, y) = o.output = x + y
+backward(::ScalarOperator{typeof(+)}, x, y, g) = tuple(g, g)
+
 σ(x) = 1 / (1 + exp(-x))
 Base.Broadcast.broadcasted(σ, x::GraphNode) = BroadcastedOperator(σ, Matrix{Float32}(undef, size(x.output)), x)
-forward(o::BroadcastedOperator{typeof(σ)}, x) = o.output[:] = σ.(x)
-function backward(op::BroadcastedOperator{typeof(σ)}, x, g)
-    y = op.output
+forward(o::BroadcastedOperator{typeof(σ)}, x::Matrix{Float32}) = o.output .= σ.(x)
+function backward(op::BroadcastedOperator{typeof(σ)}, ::Matrix{Float32}, g::Matrix{Float32})
+    y .= op.output
     res = y .* (1.0f0 .- y) .* g
+    return tuple(res)
+end
+
+σ(x::GraphNode) = ScalarOperator(σ, 0.0f0, x)
+forward(o::ScalarOperator{typeof(σ)}, x::Float32) = o.output = σ(x)
+function backward(op::ScalarOperator{typeof(σ)}, ::Float32, g::Float32)
+    y = op.output
+    res = y * (1.0f0 - y) * g
     return tuple(res)
 end
 
@@ -49,6 +62,15 @@ end
 function backward(op::BroadcastedOperator{typeof(tanh)}, ::Matrix{Float32}, g::Matrix{Float32})
     y = op.output
     res = (1.0f0 .- y .^ 2) .* g
+    return tuple(res)
+end
+
+import Base: tanh
+tanh(x::GraphNode) = ScalarOperator(tanh, 0.0f0, x)
+forward(o::ScalarOperator{typeof(tanh)}, x::Float32) = o.output = tanh(x)
+function backward(op::ScalarOperator{typeof(tanh)}, ::Float32, g::Float32)
+    y = op.output
+    res = (1.0f0 - y^2) * g
     return tuple(res)
 end
 
@@ -71,7 +93,7 @@ function cross_entropy(ŷ, y)
 end
 cross_entropy(x::GraphNode, y::GraphNode) = ScalarOperator(cross_entropy, 0.0f0, x, y)
 forward(o::ScalarOperator{typeof(cross_entropy)}, x, y) = o.output = cross_entropy(x, y)
-function backward(::ScalarOperator{typeof(cross_entropy)}, ŷ, y, g)
+function backward(::ScalarOperator{typeof(cross_entropy)}, ŷ::Matrix{Float32}, y::Matrix{Float32}, g::Float32)
     _, m = size(ŷ)
     e = exp.(ŷ)
     p = e ./ sum(e, dims=1)
