@@ -4,12 +4,11 @@ from tensorflow.keras.datasets import mnist
 from tensorflow.keras.utils import to_categorical
 import tracemalloc
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 tf.random.set_seed(1)
 np.random.seed(1)
-
-def convert_to_gigabye(byte_tuple):
-    gigabyte_values = [bytes_value / 1_073_741_824 for bytes_value in byte_tuple]
-    return gigabyte_values
 
 import time
 class etimer(tf.keras.callbacks.Callback):
@@ -21,9 +20,18 @@ class etimer(tf.keras.callbacks.Callback):
     def on_epoch_end(self,epoch, logs=None): 
         later=time.time()
         duration=later-self.now 
-        print('\nfor epoch ', epoch +1, ' the duration was ', duration, ' seconds')
-        print('\nmemory usage: ', convert_to_gigabye(tracemalloc.get_traced_memory()), ' GiB')
+        print('\nfor epoch ', epoch+1, ' the duration was ', duration, ' seconds')
+        snapshot = tracemalloc.take_snapshot()
+        snapshot = snapshot.filter_traces((
+        tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+        tracemalloc.Filter(False, "<unknown>"),
+        ))
+        top_stats = snapshot.statistics('lineno')
+        total = sum(stat.size for stat in top_stats)
+        print("Total allocated size: %.1f kiB" % (total / 1024))
         tracemalloc.stop()
+
+input('press any key...')
 
 # Load data
 (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
