@@ -31,8 +31,6 @@ class etimer(tf.keras.callbacks.Callback):
         print("Total allocated size: %.1f kiB" % (total / 1024))
         tracemalloc.stop()
 
-input('press any key...')
-
 # Load data
 (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
 X_train, X_validation = X_train[:50000], X_train[50000:]
