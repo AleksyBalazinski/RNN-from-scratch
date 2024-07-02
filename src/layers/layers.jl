@@ -126,6 +126,6 @@ function adjust_params(learning_rate::Float32)
         if size(param.output, 2) == 1
             grad = reshape(param.gradient[:, 1], :, 1)
         end
-        param.output -= learning_rate * grad
+        @. param.output -= learning_rate * grad
     end
 end
